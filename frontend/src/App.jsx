@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import LeadsTable from "./components/LeadsTable.jsx";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+const RENDER_API_BASE_URL = "https://linkedinleadexport.onrender.com/api";
+const LOCAL_API_BASE_URL = "http://localhost:5000/api";
+
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  (window.location.hostname.includes("netlify.app") ? RENDER_API_BASE_URL : LOCAL_API_BASE_URL);
 
 export default function App() {
   const [leads, setLeads] = useState([]);
