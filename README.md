@@ -88,5 +88,6 @@ Then set `VITE_API_BASE_URL` to the ngrok HTTPS URL plus `/api`. Also add your N
 ## Notes
 
 - The Playwright browser runs with `headless: false` and waits up to 5 minutes for manual LinkedIn login.
+- On Render, Playwright runs headless because hosted servers cannot display an interactive browser window.
 - This project extracts only publicly visible fields. It does not bypass CAPTCHAs, MFA, paywalls, or LinkedIn access controls.
 - LinkedIn markup changes often, so selectors may need updates over time.

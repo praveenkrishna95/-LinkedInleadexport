@@ -5,6 +5,7 @@ const LINKEDIN_LOGIN_URL = "https://www.linkedin.com/login";
 const DEFAULT_QUERY = "Home Decor Showroom Owner USA";
 const MAX_PAGES = 3;
 const MANUAL_LOGIN_TIMEOUT = 5 * 60 * 1000;
+const isRender = Boolean(process.env.RENDER);
 
 function cleanText(value) {
   return (value || "").replace(/\s+/g, " ").trim();
@@ -149,8 +150,9 @@ export async function scrapeLinkedInLeads({
   maxPages = MAX_PAGES
 } = {}) {
   const browser = await chromium.launch({
-    headless: false,
-    slowMo: 80
+    headless: isRender || process.env.PLAYWRIGHT_HEADLESS === "true" ? true : false,
+    slowMo: isRender ? 0 : 80,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"]
   });
 
   const context = await browser.newContext({
