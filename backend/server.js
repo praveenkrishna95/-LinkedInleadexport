@@ -10,15 +10,29 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 5000;
-const allowedOrigins = (process.env.FRONTEND_ORIGIN || "http://localhost:5173")
+
+function normalizeOrigin(origin) {
+  return origin?.trim().replace(/\/$/, "");
+}
+
+const defaultAllowedOrigins = [
+  "http://localhost:5173",
+  "https://exportleadinkedin.netlify.app"
+];
+
+const envAllowedOrigins = (process.env.FRONTEND_ORIGIN || "")
   .split(",")
-  .map((origin) => origin.trim())
+  .map(normalizeOrigin)
   .filter(Boolean);
+
+const allowedOrigins = new Set([...defaultAllowedOrigins, ...envAllowedOrigins]);
 
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      const normalizedOrigin = normalizeOrigin(origin);
+
+      if (!normalizedOrigin || allowedOrigins.has(normalizedOrigin)) {
         callback(null, true);
         return;
       }
