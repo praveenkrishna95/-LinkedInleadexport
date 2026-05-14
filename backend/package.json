@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
-    "render-build": "npm install && npx playwright install chromium",
+    "postinstall": "node scripts/install-playwright.js",
+    "render-build": "npm install",
     "start": "node server.js"
   },
   "dependencies": {

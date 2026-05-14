@@ -1,4 +1,3 @@
-import { chromium } from "playwright";
 import Lead from "../models/Lead.js";
 
 const LINKEDIN_LOGIN_URL = "https://www.linkedin.com/login";
@@ -149,6 +148,11 @@ export async function scrapeLinkedInLeads({
   query = DEFAULT_QUERY,
   maxPages = MAX_PAGES
 } = {}) {
+  if (isRender && !process.env.PLAYWRIGHT_BROWSERS_PATH) {
+    process.env.PLAYWRIGHT_BROWSERS_PATH = "0";
+  }
+
+  const { chromium } = await import("playwright");
   const browser = await chromium.launch({
     headless: isRender || process.env.PLAYWRIGHT_HEADLESS === "true" ? true : false,
     slowMo: isRender ? 0 : 80,

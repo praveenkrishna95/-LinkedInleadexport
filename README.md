@@ -78,6 +78,22 @@ ngrok http 5000
 
 Then set `VITE_API_BASE_URL` to the ngrok HTTPS URL plus `/api`. Also add your Netlify site URL to backend `FRONTEND_ORIGIN`, separated by commas.
 
+## Render Backend
+
+Use these Render settings for the backend service:
+
+```text
+Root directory: backend
+Build command: npm install
+Start command: npm start
+```
+
+The backend `postinstall` script installs Playwright Chromium during each deploy. If you use a custom Render build command instead, run:
+
+```bash
+npm run render-build
+```
+
 ## API
 
 - `POST /api/scrape` starts LinkedIn scraping with `query` and `maxPages` in the JSON body.
@@ -89,5 +105,6 @@ Then set `VITE_API_BASE_URL` to the ngrok HTTPS URL plus `/api`. Also add your N
 
 - The Playwright browser runs with `headless: false` and waits up to 5 minutes for manual LinkedIn login.
 - On Render, Playwright runs headless because hosted servers cannot display an interactive browser window.
+- Because Render runs headless, manual LinkedIn login will not be visible there. For login-based scraping, run the backend locally or through ngrok, or add a pre-authenticated Playwright storage state workflow.
 - This project extracts only publicly visible fields. It does not bypass CAPTCHAs, MFA, paywalls, or LinkedIn access controls.
 - LinkedIn markup changes often, so selectors may need updates over time.
