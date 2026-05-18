@@ -31,11 +31,13 @@ PORT=5000
 MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster.mongodb.net/linkedin_leads
 MONGODB_DB_NAME=digitalgadgets
 FRONTEND_ORIGIN=http://localhost:5173,https://your-site.netlify.app
+LINKEDIN_EMAIL=your-linkedin-email@example.com
+LINKEDIN_PASSWORD=your-linkedin-password
 ```
 
 To reuse the same MongoDB Atlas database as the DigitalGadgets project, paste that project's Atlas connection string into `MONGODB_URI` and keep `MONGODB_DB_NAME=digitalgadgets`.
 
-The search query is entered from the frontend. LinkedIn login happens manually in the browser window opened by Playwright, so credentials are not stored in this project.
+The search query is entered from the frontend. LinkedIn login runs automatically from backend environment variables when available, then saves a Playwright session in `backend/.auth/` for future runs. If LinkedIn asks for OTP, captcha, or security verification, complete it manually once from a local backend run.
 Each successful new scrape clears the old saved leads before storing the latest results, so the table and CSV export contain only the newest scrape.
 
 ## Run
@@ -103,7 +105,7 @@ npm run render-build
 
 ## Notes
 
-- The Playwright browser runs with `headless: false` and waits up to 5 minutes for manual LinkedIn login.
+- The Playwright browser runs with `headless: false` locally, automatically logs in from env credentials when available, and stores session state in `backend/.auth/`.
 - On Render, Playwright runs headless because hosted servers cannot display an interactive browser window.
 - Because Render runs headless, manual LinkedIn login will not be visible there. For login-based scraping, run the backend locally or through ngrok, or add a pre-authenticated Playwright storage state workflow.
 - This project extracts only publicly visible fields. It does not bypass CAPTCHAs, MFA, paywalls, or LinkedIn access controls.

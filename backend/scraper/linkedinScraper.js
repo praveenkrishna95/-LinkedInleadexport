@@ -1,9 +1,15 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import Lead from "../models/Lead.js";
 
 const LINKEDIN_LOGIN_URL = "https://www.linkedin.com/login";
+const LINKEDIN_FEED_URL = "https://www.linkedin.com/feed/";
 const DEFAULT_QUERY = "Home Decor Showroom Owner USA";
 const MAX_PAGES = 3;
 const MANUAL_LOGIN_TIMEOUT = 5 * 60 * 1000;
+const AUTO_LOGIN_TIMEOUT = 2 * 60 * 1000;
+const AUTH_DIR = path.resolve(process.cwd(), ".auth");
+const STORAGE_STATE_PATH = path.join(AUTH_DIR, "linkedin-storage.json");
 const isRender = Boolean(process.env.RENDER);
 
 function cleanText(value) {
@@ -37,10 +43,33 @@ function splitRoleAndCompany(role) {
   };
 }
 
-async function waitForManualLinkedInLogin(page) {
+async function fileExists(filePath) {
+  return fs
+    .access(filePath)
+    .then(() => true)
+    .catch(() => false);
+}
+
+function isLinkedInSessionUrl(url) {
+  return /linkedin\.com\/(feed|in|search|mynetwork|jobs)/.test(url);
+}
+
+async function saveLinkedInSession(context) {
+  await fs.mkdir(AUTH_DIR, { recursive: true });
+  await context.storageState({ path: STORAGE_STATE_PATH });
+}
+
+async function hasActiveLinkedInSession(page) {
+  await page.goto(LINKEDIN_FEED_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(1500);
+  return isLinkedInSessionUrl(page.url());
+}
+
+async function waitForManualLinkedInLogin(page, context) {
   await page.goto(LINKEDIN_LOGIN_URL, { waitUntil: "domcontentloaded" });
 
-  if (/linkedin\.com\/(feed|in|search|mynetwork|jobs)/.test(page.url())) {
+  if (isLinkedInSessionUrl(page.url())) {
+    await saveLinkedInSession(context);
     return;
   }
 
@@ -51,6 +80,63 @@ async function waitForManualLinkedInLogin(page) {
     .catch(() => {
       throw new Error("Manual LinkedIn login timed out after 5 minutes. Click Start Scraping again and finish login in the opened browser.");
     });
+
+  await saveLinkedInSession(context);
+}
+
+async function autoLoginToLinkedIn(page, context) {
+  const email = process.env.LINKEDIN_EMAIL;
+  const password = process.env.LINKEDIN_PASSWORD;
+
+  if (!email || !password) {
+    if (isRender) {
+      throw new Error("Automatic LinkedIn login needs LINKEDIN_EMAIL and LINKEDIN_PASSWORD in Render environment variables.");
+    }
+
+    await waitForManualLinkedInLogin(page, context);
+    return;
+  }
+
+  await page.goto(LINKEDIN_LOGIN_URL, { waitUntil: "domcontentloaded" });
+
+  if (isLinkedInSessionUrl(page.url())) {
+    await saveLinkedInSession(context);
+    return;
+  }
+
+  await page.fill("#username", email, { timeout: 30000 });
+  await page.fill("#password", password, { timeout: 30000 });
+  await Promise.all([
+    page.waitForURL(/linkedin\.com\/(feed|in|search|mynetwork|jobs|checkpoint)/, {
+      timeout: AUTO_LOGIN_TIMEOUT
+    }),
+    page.click('button[type="submit"]')
+  ]);
+
+  const failedLogin = await page
+    .locator("#error-for-password, #error-for-username, .form__label--error")
+    .first()
+    .isVisible()
+    .catch(() => false);
+
+  if (failedLogin) {
+    throw new Error("LinkedIn automatic login failed. Check LINKEDIN_EMAIL and LINKEDIN_PASSWORD.");
+  }
+
+  if (!isLinkedInSessionUrl(page.url())) {
+    throw new Error("LinkedIn needs security verification. Complete it manually once locally so the app can save a session.");
+  }
+
+  await saveLinkedInSession(context);
+}
+
+async function ensureLinkedInLogin(page, context) {
+  if (await hasActiveLinkedInSession(page)) {
+    await saveLinkedInSession(context);
+    return;
+  }
+
+  await autoLoginToLinkedIn(page, context);
 }
 
 async function searchPeople(page, query) {
@@ -153,6 +239,7 @@ export async function scrapeLinkedInLeads({
   }
 
   const { chromium } = await import("playwright");
+  const hasStorageState = await fileExists(STORAGE_STATE_PATH);
   const browser = await chromium.launch({
     headless: isRender || process.env.PLAYWRIGHT_HEADLESS === "true" ? true : false,
     slowMo: isRender ? 0 : 80,
@@ -160,13 +247,14 @@ export async function scrapeLinkedInLeads({
   });
 
   const context = await browser.newContext({
-    viewport: { width: 1366, height: 768 }
+    viewport: { width: 1366, height: 768 },
+    storageState: hasStorageState ? STORAGE_STATE_PATH : undefined
   });
   const page = await context.newPage();
   const collected = [];
 
   try {
-    await waitForManualLinkedInLogin(page);
+    await ensureLinkedInLogin(page, context);
     await Lead.deleteMany({});
     await searchPeople(page, query);
 
